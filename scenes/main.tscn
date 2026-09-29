@@ -1,0 +1,283 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://ui/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://ui/board_view.gd" id="2_board"]
+[ext_resource type="Script" path="res://ui/ap_meter.gd" id="3_ap"]
+
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_main")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.117647, 0.12549, 0.145098, 1)
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="HBox" type="HBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="BoardView" type="Control" parent="Margin/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+script = ExtResource("2_board")
+
+[node name="Side" type="PanelContainer" parent="Margin/HBox"]
+custom_minimum_size = Vector2(380, 0)
+layout_mode = 2
+
+[node name="SideMargin" type="MarginContainer" parent="Margin/HBox/Side"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 12
+
+[node name="VBox" type="VBoxContainer" parent="Margin/HBox/Side/SideMargin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="Margin/HBox/Side/SideMargin/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "ESCAQUE"
+
+[node name="Subtitle" type="Label" parent="Margin/HBox/Side/SideMargin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.62, 0.66, 1)
+theme_override_font_sizes/font_size = 13
+text = "Prototipo P0 / C0 · GDD v0.1 · hotseat 1v1"
+
+[node name="ModeRow" type="HBoxContainer" parent="Margin/HBox/Side/SideMargin/VBox"]
+layout_mode = 2
+
+[node name="ModeSelect" type="OptionButton" parent="Margin/HBox/Side/SideMargin/VBox/ModeRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+
+[node name="NewGameButton" type="Button" parent="Margin/HBox/Side/SideMargin/VBox/ModeRow"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "Nueva partida"
+
+[node name="Sep1" type="HSeparator" parent="Margin/HBox/Side/SideMargin/VBox"]
+layout_mode = 2
+
+[node name="TurnLabel" type="Label" parent="Margin/HBox/Side/SideMargin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.62, 0.66, 1)
+text = "Turno 1 · ronda 1"
+
+[node name="PlayerLabel" type="Label" parent="Margin/HBox/Side/SideMargin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Juegan Blancas"
+
+[node name="APLabel" type="Label" parent="Margin/HBox/Side/SideMargin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "PA disponibles: 6 / 6"
+
+[node name="APMeter" type="Control" parent="Margin/HBox/Side/SideMargin/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+script = ExtResource("3_ap")
+
+[node name="ProjectionLabel" type="Label" parent="Margin/HBox/Side/SideMargin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+text = "Si terminas ahora: guardas 2 PA"
+
+[node name="ReserveLabel" type="Label" parent="Margin/HBox/Side/SideMargin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.62, 0.66, 1)
+text = "Reserva · Blancas 0 · Negras 0"
+
+[node name="Sep2" type="HSeparator" parent="Margin/HBox/Side/SideMargin/VBox"]
+layout_mode = 2
+
+[node name="SelectionLabel" type="Label" parent="Margin/HBox/Side/SideMargin/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+autowrap_mode = 3
+text = "Selecciona una pieza."
+
+[node name="SequenceLabel" type="Label" parent="Margin/HBox/Side/SideMargin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.75, 0.77, 0.8, 1)
+autowrap_mode = 3
+text = "Secuencia: —"
+
+[node name="EndTurnButton" type="Button" parent="Margin/HBox/Side/SideMargin/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 46)
+layout_mode = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 18
+text = "Fin de turno  [Espacio]"
+
+[node name="Sep3" type="HSeparator" parent="Margin/HBox/Side/SideMargin/VBox"]
+layout_mode = 2
+
+[node name="HistoryTitle" type="Label" parent="Margin/HBox/Side/SideMargin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.62, 0.66, 1)
+text = "Registro de la partida"
+
+[node name="History" type="RichTextLabel" parent="Margin/HBox/Side/SideMargin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+focus_mode = 0
+bbcode_enabled = true
+scroll_following = true
+theme_override_font_sizes/normal_font_size = 13
+theme_override_font_sizes/bold_font_size = 13
+
+[node name="FooterRow" type="HBoxContainer" parent="Margin/HBox/Side/SideMargin/VBox"]
+layout_mode = 2
+
+[node name="DrawButton" type="Button" parent="Margin/HBox/Side/SideMargin/VBox/FooterRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+text = "Empate experimental…"
+
+[node name="LogsButton" type="Button" parent="Margin/HBox/Side/SideMargin/VBox/FooterRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+text = "Abrir carpeta de logs"
+
+[node name="GameOverLayer" type="ColorRect" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.55)
+
+[node name="Center" type="CenterContainer" parent="GameOverLayer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="GameOverLayer/Center"]
+custom_minimum_size = Vector2(440, 0)
+layout_mode = 2
+
+[node name="PMargin" type="MarginContainer" parent="GameOverLayer/Center/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 20
+
+[node name="PVBox" type="VBoxContainer" parent="GameOverLayer/Center/Panel/PMargin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="GameOverTitle" type="Label" parent="GameOverLayer/Center/Panel/PMargin/PVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+horizontal_alignment = 1
+text = "Ganan Blancas"
+
+[node name="GameOverDetail" type="Label" parent="GameOverLayer/Center/Panel/PMargin/PVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 1
+autowrap_mode = 3
+text = "Rey capturado"
+
+[node name="GameOverLog" type="Label" parent="GameOverLayer/Center/Panel/PMargin/PVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.62, 0.66, 1)
+theme_override_font_sizes/font_size = 12
+horizontal_alignment = 1
+autowrap_mode = 3
+text = "Log:"
+
+[node name="PButtons" type="HBoxContainer" parent="GameOverLayer/Center/Panel/PMargin/PVBox"]
+layout_mode = 2
+alignment = 1
+
+[node name="GameOverNewButton" type="Button" parent="GameOverLayer/Center/Panel/PMargin/PVBox/PButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "Nueva partida"
+
+[node name="GameOverCloseButton" type="Button" parent="GameOverLayer/Center/Panel/PMargin/PVBox/PButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "Ver tablero"
+
+[node name="DrawDialog" type="ConfirmationDialog" parent="."]
+unique_name_in_owner = true
+title = "Empate experimental"
+size = Vector2i(420, 160)
+ok_button_text = "Registrar empate"
+cancel_button_text = "Cancelar"
+
+[node name="DVBox" type="VBoxContainer" parent="DrawDialog"]
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 412.0
+offset_bottom = 111.0
+
+[node name="DLabel" type="Label" parent="DrawDialog/DVBox"]
+layout_mode = 2
+autowrap_mode = 3
+text = "Causa observada (§6.10): repetición, bloqueo…"
+
+[node name="DrawCause" type="LineEdit" parent="DrawDialog/DVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "p. ej. repetición de posiciones"

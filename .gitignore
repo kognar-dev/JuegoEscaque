@@ -1,0 +1,42 @@
+# --- Godot 4 ---
+# Caché de importación y metadatos del editor (se regeneran al abrir el proyecto)
+.godot/
+# Godot 3 (por si acaso)
+.import/
+
+# Exportación: las credenciales nunca se suben; los presets sí se pueden compartir
+export_credentials.cfg
+*.pck
+*.zip
+/build/
+/builds/
+/export/
+
+# Plantilla de compilación Android
+/android/
+
+# Godot .NET / C# (no usado ahora, previsto por si cambia)
+.mono/
+data_*/
+mono_crash.*.json
+*.csproj.old
+
+# --- Logs de partida exportados manualmente al repo ---
+# (los logs normales viven en user://logs, fuera del proyecto)
+/logs/
+*.log
+
+# --- Sistema operativo ---
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+$RECYCLE.BIN/
+
+# --- Editores ---
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.swp
+*~
+*.tmp

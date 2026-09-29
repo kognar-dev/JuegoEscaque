@@ -1,0 +1,64 @@
+{
+	"_comment": "Parámetros de ESCAQUE. Editar aquí para probar variantes sin tocar código (GDD §13.4).",
+	"version": "0.1",
+	"board_size": 8,
+	"first_player": "white",
+	"setup": [
+		"..rknr..",
+		"..pppp..",
+		"........",
+		"........",
+		"........",
+		"........",
+		"..PPPP..",
+		"..RNKR.."
+	],
+	"pieces": {
+		"pawn": {
+			"name": "Peón",
+			"letter": "P",
+			"symbol": "p",
+			"cost": 1,
+			"movement": "pawn"
+		},
+		"knight": {
+			"name": "Caballo",
+			"letter": "C",
+			"symbol": "n",
+			"cost": 2,
+			"movement": "leaper",
+			"offsets": [[1, 2], [2, 1], [2, -1], [1, -2], [-1, -2], [-2, -1], [-2, 1], [-1, 2]]
+		},
+		"rook": {
+			"name": "Torre",
+			"letter": "T",
+			"symbol": "r",
+			"cost": 3,
+			"movement": "slider",
+			"directions": [[1, 0], [-1, 0], [0, 1], [0, -1]]
+		},
+		"king": {
+			"name": "Rey",
+			"letter": "R",
+			"symbol": "k",
+			"cost": 2,
+			"movement": "leaper",
+			"offsets": [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]],
+			"royal": true
+		}
+	},
+	"modes": {
+		"P0": {
+			"label": "P0 · economía de PA",
+			"economy": "ap",
+			"base_ap": 6,
+			"max_reserve": 2,
+			"max_activations_per_piece": 1
+		},
+		"C0": {
+			"label": "C0 · activación única (control)",
+			"economy": "single_activation",
+			"max_activations_per_piece": 1
+		}
+	}
+}
