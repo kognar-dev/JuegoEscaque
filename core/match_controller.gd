@@ -25,6 +25,8 @@ func new_match(mode: String) -> void:
 	TurnController.start_turn(state)
 	logger.begin_match(state)
 	state_changed.emit()
+	if state.over:  # p. ej. sin jugadas desde la posición inicial
+		_finish(false)
 
 
 func legal_moves(piece: Piece) -> Array[Vector2i]:
@@ -50,7 +52,7 @@ func activate(piece: Piece, to: Vector2i) -> Dictionary:
 		return action
 	action_performed.emit(action)
 	if state.over:
-		_finish("fin_partida")
+		_finish()
 	elif not rules.uses_ap():
 		_end_turn("auto_c0")
 	else:
@@ -69,7 +71,7 @@ func declare_draw(cause: String) -> void:
 	if state.over:
 		return
 	VictorySystem.declare_draw(state, cause)
-	_finish("fin_partida")
+	_finish()
 
 
 ## Guarda el log de una partida sin terminar (nueva partida / cerrar ventana).
@@ -79,18 +81,24 @@ func abandon_if_running() -> void:
 	if state.player_turn <= 1 and state.turn_actions.is_empty():
 		return  # no se ha jugado nada: no merece log
 	VictorySystem.abandon(state)
-	_finish("fin_partida")
+	_finish()
 
 
 func _end_turn(ended_by: String) -> void:
 	var summary := TurnController.end_turn(state, ended_by)
 	logger.record_turn(summary)
 	turn_ended.emit(summary)
-	state_changed.emit()
+	if state.over:
+		# Tablas o derrota detectadas al empezar el turno siguiente: ese turno no se jugó.
+		_finish(false)
+	else:
+		state_changed.emit()
 
 
-func _finish(ended_by: String) -> void:
-	logger.record_turn(TurnController.turn_summary(state, ended_by))
+## Cierra la partida. `record_current`: registrar el turno en curso (acabado a mitad).
+func _finish(record_current: bool = true) -> void:
+	if record_current:
+		logger.record_turn(TurnController.turn_summary(state, "fin_partida"))
 	var path := logger.end_match(state)
 	state_changed.emit()
 	match_finished.emit(path)

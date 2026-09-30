@@ -177,14 +177,22 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 focus_mode = 0
-text = "Empate experimental…"
+text = "Empate…"
 
 [node name="LogsButton" type="Button" parent="Margin/HBox/Side/SideMargin/VBox/FooterRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 focus_mode = 0
-text = "Abrir carpeta de logs"
+text = "Carpeta de logs"
+
+[node name="ReportButton" type="Button" parent="Margin/HBox/Side/SideMargin/VBox/FooterRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+tooltip_text = "Analiza todos los logs y abre un informe comparativo C0 / P0"
+text = "Informe"
 
 [node name="GameOverLayer" type="ColorRect" parent="."]
 unique_name_in_owner = true

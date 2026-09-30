@@ -27,6 +27,7 @@ static func start_turn(s: GameState) -> void:
 	else:
 		s.ap_available = 0
 	s.ap_at_turn_start = s.ap_available
+	VictorySystem.on_turn_start(s)
 
 
 ## Devuelve "" si la pieza puede activarse ahora, o el motivo si no.
@@ -107,6 +108,23 @@ static func projected_reserve(s: GameState) -> int:
 	return mini(s.ap_available, s.rules.max_reserve)
 
 
+## Piezas que aún podrían activarse (para medir el ahorro deliberado de PA).
+static func activatable_count(s: GameState) -> int:
+	var n := 0
+	for p in s.board.pieces_of(s.active_player):
+		if can_activate(s, p):
+			n += 1
+	return n
+
+
+## Hubo progreso si alguna activación capturó o movió un peón (regla de «sin progreso»).
+static func turn_made_progress(s: GameState) -> bool:
+	for a in s.turn_actions:
+		if a["capture"] or a["piece"] == "pawn":
+			return true
+	return false
+
+
 ## Resumen del turno en curso (se usa al terminarlo y al acabar la partida a mitad).
 static func turn_summary(s: GameState, ended_by: String) -> Dictionary:
 	var uses_ap := s.rules.uses_ap()
@@ -126,6 +144,9 @@ static func turn_summary(s: GameState, ended_by: String) -> Dictionary:
 		"activations": s.turn_actions.size(),
 		"sequence": seq,
 		"ended_by": ended_by,
+		"activatable_left": activatable_count(s) if ended_by != "fin_partida" else null,
+		"turns_without_progress": s.turns_without_progress,
+		"position_repetition": s.current_repetition,
 		"actions": s.turn_actions.duplicate(true),
 	}
 
@@ -136,6 +157,7 @@ static func end_turn(s: GameState, ended_by: String = "voluntario") -> Dictionar
 	if not can_end_turn(s):
 		return {}
 	var summary := turn_summary(s, ended_by)
+	s.turns_without_progress = 0 if turn_made_progress(s) else s.turns_without_progress + 1
 	if s.rules.uses_ap():
 		s.reserve[s.active_player] = projected_reserve(s)
 	s.ap_available = 0

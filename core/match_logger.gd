@@ -23,6 +23,7 @@ func begin_match(s: GameState) -> void:
 		"game_version": String(ProjectSettings.get_setting("application/config/version", "0.1.0")),
 		"mode": s.rules.mode_id,
 		"config": s.rules.to_log_dict(),
+		"rules": s.rules.raw,
 		"started_at": Time.get_datetime_string_from_system(),
 		"ended_at": null,
 		"first_player": Piece.owner_key(s.rules.first_player),
@@ -45,6 +46,7 @@ func record_turn(summary: Dictionary) -> void:
 func end_match(s: GameState) -> String:
 	data["ended_at"] = Time.get_datetime_string_from_system()
 	data["winner"] = Piece.owner_key(s.winner) if s.winner >= 0 else null
+	data["first_player_won"] = (s.winner == s.rules.first_player) if s.winner >= 0 else null
 	data["end_reason"] = s.end_reason
 	data["draw_cause"] = s.draw_cause if s.draw_cause != "" else null
 	data["duration"] = {"player_turns": data["turns"].size(), "rounds": s.round_number}

@@ -313,7 +313,137 @@ func test_random_playouts() -> void:
 				for q in mc.state.board.all_pieces():
 					if q.piece_type == "king":
 						kings += 1
-				if kings != 1:
+				if mc.state.end_reason == VictorySystem.REASON_KING and kings != 1:
+					ok = false
+				if mc.state.end_reason not in [VictorySystem.REASON_KING, VictorySystem.REASON_REPETITION, VictorySystem.REASON_NO_PROGRESS]:
 					ok = false
 	check(ok, "300 partidas aleatorias sin violar invariantes (PA≥0, Reserva≤2, 1 activación/pieza)")
-	check(finished > 250, "la mayoría terminan por captura de Rey (%d/300)" % finished)
+	check(finished == 300, "todas terminan (Rey capturado o tablas automáticas) (%d/300)" % finished)
+
+
+# --- Tablas automáticas y regla sin jugadas (Anexo A · A.2.2, A.2.3) ---------------
+
+func test_repetition_draw() -> void:
+	var mc := _custom("P0", [["K", "a1"], ["N", "b1"], ["k", "h8"], ["n", "g8"]])
+	var cycle := [["b1", "c3"], ["g8", "f6"], ["c3", "b1"], ["f6", "g8"]]
+	var i := 0
+	while not mc.state.over and i < 40:
+		var step: Array = cycle[i % 4]
+		_mv(mc, step[0], step[1])
+		mc.end_turn()
+		i += 1
+	check(mc.state.over and mc.state.end_reason == VictorySystem.REASON_REPETITION, "repetición triple → tablas")
+	# Sin PA/Reserva en la clave, T1 = T5 = T9 → tablas en T9. Con ellas, T1 (6 PA) es distinta
+	# y la primera triple es T3 = T7 = T11.
+	check(mc.state.player_turn == 11, "la clave de posición incluye PA y Reserva (tablas en T11, no en T9)")
+	check(mc.state.winner == -1 and VictorySystem.is_draw(mc.state), "sin ganador")
+
+
+func test_no_progress_draw() -> void:
+	var mc := _custom("P0", [["K", "a1"], ["P", "c2"], ["k", "h8"], ["p", "f7"]])
+	mc.rules.repetition_limit = 0
+	mc.rules.no_progress_turns = 4
+	_mv(mc, "a1", "b1")
+	mc.end_turn()          # 1 sin progreso
+	_mv(mc, "h8", "g8")
+	mc.end_turn()          # 2
+	_mv(mc, "c2", "c3")    # peón: progreso → contador a 0
+	mc.end_turn()
+	check(mc.state.turns_without_progress == 0, "mover un peón reinicia el contador")
+	for k in 4:
+		mc.end_turn()      # pasar sin activar
+	check(mc.state.over and mc.state.end_reason == VictorySystem.REASON_NO_PROGRESS, "N turnos sin progreso → tablas")
+
+
+func test_no_moves_rule() -> void:
+	# Blancas sin ninguna jugada legal: Rey en a8 rodeado de peones propios y peón en última fila.
+	var placements := [["K", "a8"], ["P", "b8"], ["P", "a7"], ["P", "b7"], ["k", "h1"]]
+	for flag in [false, true]:
+		var mc := _new("P0")
+		var grid := []
+		for y in 8:
+			grid.append(".".repeat(8))
+		for pl in placements:
+			var p := Board.parse_square(pl[1])
+			var r := 7 - p.y
+			var row: String = grid[r]
+			grid[r] = row.substr(0, p.x) + pl[0] + row.substr(p.x + 1)
+		mc.rules.setup_rows = PackedStringArray(grid)
+		mc.rules.no_moves_loses = flag
+		mc.state = GameState.create(mc.rules)
+		TurnController.start_turn(mc.state)
+		if flag:
+			check(mc.state.over and mc.state.winner == Piece.BLACK and mc.state.end_reason == VictorySystem.REASON_NO_MOVES,
+				"no_moves_loses=true: sin jugadas legales pierde")
+		else:
+			check(not mc.state.over and mc.can_end_turn(), "no_moves_loses=false: sólo pasa turno")
+
+
+func test_end_rules_from_config() -> void:
+	var mc := _new("P0")
+	check(mc.rules.repetition_limit == 3 and mc.rules.no_progress_turns == 30 and mc.rules.no_moves_loses == false,
+		"valores de end_rules leídos del JSON")
+
+
+# --- Analizador de logs ------------------------------------------------------------
+
+func test_replay_order_dependency() -> void:
+	var mc := MatchController.new(_log_dir, false)
+	mc.new_match("P0")
+	_mv(mc, "c2", "c3")   # libera c2…
+	_mv(mc, "c1", "c2")   # …y la Torre sólo puede ir a c2 gracias a lo anterior
+	mc.end_turn()
+	_mv(mc, "e7", "e6")
+	_mv(mc, "d7", "d6")   # independientes
+	mc.end_turn()
+	mc.logger.record_turn(TurnController.turn_summary(mc.state, "fin_partida"))
+	var r := LogAnalyzer.replay_order_dependency(mc.logger.data)
+	check(r["ok"], "la partida se reproduce desde el log")
+	check(r["deps"][0] == 1 and r["deps"][1] == 0, "detecta la activación habilitada por otra anterior (1) y la independiente (0)")
+	var t0: Dictionary = mc.logger.data["turns"][0]
+	check(t0.has("activatable_left") and int(t0["activatable_left"]) > 0, "log: piezas aún activables al terminar (ahorro deliberado)")
+	check(mc.logger.data.has("rules"), "log: incluye las reglas completas")
+
+
+func test_analyzer_report() -> void:
+	var dir := "user://test_analyzer"
+	DirAccess.make_dir_recursive_absolute(dir)
+	for f in DirAccess.get_files_at(dir):
+		DirAccess.remove_absolute(dir.path_join(f))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 777
+	var played := {"P0": 0, "C0": 0}
+	for mode in ["P0", "P0", "P0", "P0", "C0", "C0", "C0"]:
+		var mc := MatchController.new(dir, true)
+		mc.new_match(mode)
+		var guard := 0
+		while not mc.state.over and guard < 3000:
+			guard += 1
+			var cands: Array[Piece] = []
+			for p in mc.state.board.pieces_of(mc.state.active_player):
+				if TurnController.can_activate(mc.state, p):
+					cands.append(p)
+			if cands.is_empty() or (mode == "P0" and rng.randf() < 0.3):
+				mc.end_turn()
+				continue
+			var p: Piece = cands[rng.randi() % cands.size()]
+			var moves := mc.legal_moves(p)
+			mc.activate(p, moves[rng.randi() % moves.size()])
+		played[mode] += 1
+		OS.delay_msec(5)
+	var logs := LogAnalyzer.load_logs(dir)
+	var res := LogAnalyzer.analyze(logs)
+	check(logs.size() == 7, "7 logs escritos y leídos")
+	check(res["modes"]["P0"]["games"] == 4 and res["modes"]["C0"]["games"] == 3, "partidas agrupadas por modo")
+	check(res["modes"]["P0"]["replay_failed"] == 0 and res["modes"]["C0"]["replay_failed"] == 0, "todas las partidas se reproducen")
+	var p0: Dictionary = res["modes"]["P0"]
+	var hist_total := 0
+	for k in p0["reserve_hist"].keys():
+		hist_total += int(p0["reserve_hist"][k])
+	check(hist_total == p0["closed_turns"] and p0["closed_turns"] > 0, "histograma de Reserva cuadra con los turnos cerrados")
+	check(not p0["reserve_hist"].has("3"), "ninguna Reserva por encima de 2")
+	var path := LogAnalyzer.write_report(dir)
+	var text := FileAccess.get_file_as_string(path)
+	check(text.contains("## 1. Comparativa entre modos") and text.contains("P0 · indicios para el criterio de avance"),
+		"informe Markdown generado con comparativa e indicios")
+	print(text)

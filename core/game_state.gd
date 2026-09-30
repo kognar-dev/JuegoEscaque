@@ -14,9 +14,15 @@ var reserve: Array[int] = [0, 0]
 ## Activaciones del turno en curso, en orden. Cada una es un Dictionary de acción.
 var turn_actions: Array[Dictionary] = []
 
+## Tablas automáticas: veces que se ha visto cada posición al inicio de turno,
+## y turnos de jugador seguidos sin captura ni movimiento de peón.
+var position_counts: Dictionary = {}
+var current_repetition: int = 1
+var turns_without_progress: int = 0
+
 var over: bool = false
 var winner: int = -1            ## -1 = sin ganador (en curso o empate)
-var end_reason: String = ""     ## "rey_capturado" | "empate_experimental" | "abandonada"
+var end_reason: String = ""     ## ver constantes REASON_* en VictorySystem
 var draw_cause: String = ""
 
 
@@ -46,6 +52,17 @@ func opponent(of: int = -1) -> int:
 	if of < 0:
 		of = active_player
 	return 1 - of
+
+
+## Clave de posición para la repetición, calculada al inicio de turno: piezas,
+## jugador activo, PA disponibles y Reserva del rival (la misma posición con 6 u
+## 8 PA no es la misma situación).
+func position_key() -> String:
+	var parts: PackedStringArray = []
+	for p in board.all_pieces():
+		parts.append("%s%d@%d,%d" % [p.piece_type, p.owner, p.position.x, p.position.y])
+	parts.sort()
+	return "%s|%d|%d|%d" % [";".join(parts), active_player, ap_available, reserve[opponent()]]
 
 
 func ap_spent_this_turn() -> int:

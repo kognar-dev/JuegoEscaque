@@ -14,6 +14,10 @@ var economy: String = ECONOMY_AP
 var base_ap: int = 6
 var max_reserve: int = 2
 var max_activations_per_piece: int = 1
+## Fin de partida automático (Anexo A · A.2.2 y A.2.3). 0 = desactivado.
+var repetition_limit: int = 3
+var no_progress_turns: int = 30
+var no_moves_loses: bool = false
 var first_player: int = 0  # 0 = Blancas, 1 = Negras
 var setup_rows: PackedStringArray = PackedStringArray()
 ## type -> { name, letter, symbol, cost, movement, offsets, directions, royal }
@@ -52,6 +56,12 @@ static func from_dict(data: Dictionary, mode: String) -> RulesConfig:
 	c.base_ap = int(m.get("base_ap", 0))
 	c.max_reserve = int(m.get("max_reserve", 0))
 	c.max_activations_per_piece = int(m.get("max_activations_per_piece", 1))
+
+	var end_rules: Dictionary = data.get("end_rules", {}).duplicate()
+	end_rules.merge(m, true)  # el modo sobrescribe los valores globales
+	c.repetition_limit = int(end_rules.get("repetition_limit", 3))
+	c.no_progress_turns = int(end_rules.get("no_progress_turns", 30))
+	c.no_moves_loses = bool(end_rules.get("no_moves_loses", false))
 
 	for type in data.get("pieces", {}).keys():
 		var p: Dictionary = data["pieces"][type]
@@ -97,6 +107,9 @@ func to_log_dict() -> Dictionary:
 		"max_reserve": max_reserve if uses_ap() else null,
 		"max_activations_per_piece": max_activations_per_piece,
 		"costs": costs if uses_ap() else null,
+		"repetition_limit": repetition_limit,
+		"no_progress_turns": no_progress_turns,
+		"no_moves_loses": no_moves_loses,
 		"setup": Array(setup_rows),
 	}
 

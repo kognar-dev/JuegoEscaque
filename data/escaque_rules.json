@@ -3,6 +3,12 @@
 	"version": "0.1",
 	"board_size": 8,
 	"first_player": "white",
+	"end_rules": {
+		"_comment": "Fin de partida automático. 0 desactiva un límite. Cada modo puede sobrescribir estas claves.",
+		"repetition_limit": 3,
+		"no_progress_turns": 30,
+		"no_moves_loses": false
+	},
 	"setup": [
 		"..rknr..",
 		"..pppp..",

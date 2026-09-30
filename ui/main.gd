@@ -52,6 +52,7 @@ func _ready() -> void:
 	draw_button.pressed.connect(_ask_draw)
 	draw_dialog.confirmed.connect(_confirm_draw)
 	logs_button.pressed.connect(_open_logs)
+	%ReportButton.pressed.connect(_make_report)
 
 	get_tree().set_auto_accept_quit(false)
 	_start("P0")
@@ -116,6 +117,16 @@ func _confirm_draw() -> void:
 func _open_logs() -> void:
 	DirAccess.make_dir_recursive_absolute(mc.logger.log_dir)
 	OS.shell_open(ProjectSettings.globalize_path(mc.logger.log_dir))
+
+
+func _make_report() -> void:
+	DirAccess.make_dir_recursive_absolute(mc.logger.log_dir)
+	var path := LogAnalyzer.write_report(mc.logger.log_dir)
+	if path == "":
+		selection_label.text = "No se pudo generar el informe."
+		return
+	selection_label.text = "Informe generado: " + ProjectSettings.globalize_path(path)
+	OS.shell_open(ProjectSettings.globalize_path(path))
 
 
 # --- selección ----------------------------------------------------------------
@@ -203,6 +214,13 @@ func _on_match_finished(log_path: String) -> void:
 		VictorySystem.REASON_DRAW:
 			game_over_title.text = "Empate experimental"
 			game_over_detail.text = "Causa: %s · turno %d" % [s.draw_cause, s.player_turn]
+		VictorySystem.REASON_REPETITION, VictorySystem.REASON_NO_PROGRESS:
+			game_over_title.text = "Tablas"
+			game_over_detail.text = "%s (turno %d)." % [s.draw_cause.substr(0, 1).to_upper() + s.draw_cause.substr(1), s.player_turn]
+		VictorySystem.REASON_NO_MOVES:
+			game_over_title.text = "Ganan %s" % Piece.owner_name(s.winner)
+			game_over_detail.text = "%s no tienen movimientos legales (turno %d)." % [
+				Piece.owner_name(s.opponent(s.winner)), s.player_turn]
 		_:
 			return  # abandonada: no mostramos panel
 	history.append_text("[b]%s[/b] — %s\n" % [game_over_title.text, game_over_detail.text])
@@ -217,7 +235,7 @@ func _refresh() -> void:
 	if s == null:
 		return
 	var uses_ap := mc.rules.uses_ap()
-	turn_label.text = "%s · turno %d · ronda %d" % [mc.rules.mode_id, s.player_turn, s.round_number]
+	turn_label.text = "%s · turno %d · ronda %d%s" % [mc.rules.mode_id, s.player_turn, s.round_number, _end_rules_hint(s)]
 	player_label.text = ("Fin de partida" if s.over else "Juegan %s" % Piece.owner_name(s.active_player))
 	player_label.add_theme_color_override("font_color",
 		Color("#f4f1e8") if s.active_player == Piece.WHITE else Color("#b9bcc4"))
@@ -259,6 +277,17 @@ func _refresh() -> void:
 		else:
 			selection_label.text = "Selecciona una pieza. Clic derecho / Esc para cancelar."
 	board_view.queue_redraw()
+
+
+## Contadores visibles de tablas automáticas: sólo cuando empiezan a importar.
+func _end_rules_hint(s: GameState) -> String:
+	var parts: PackedStringArray = []
+	var r := mc.rules
+	if r.no_progress_turns > 0 and s.turns_without_progress >= r.no_progress_turns / 2:
+		parts.append("sin progreso %d/%d" % [s.turns_without_progress, r.no_progress_turns])
+	if r.repetition_limit > 0 and s.current_repetition >= 2 and not s.over:
+		parts.append("posición repetida %d/%d" % [s.current_repetition, r.repetition_limit])
+	return "  ·  " + " · ".join(parts) if parts.size() > 0 else ""
 
 
 func _side_adj(owner: int) -> String:
