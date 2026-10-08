@@ -87,6 +87,29 @@ layout_mode = 2
 focus_mode = 0
 text = "Nueva partida"
 
+[node name="PlayersRow" type="HBoxContainer" parent="Margin/HBox/Side/SideMargin/VBox"]
+layout_mode = 2
+
+[node name="WhiteLabel" type="Label" parent="Margin/HBox/Side/SideMargin/VBox/PlayersRow"]
+layout_mode = 2
+text = "Blancas"
+
+[node name="WhiteCtrl" type="OptionButton" parent="Margin/HBox/Side/SideMargin/VBox/PlayersRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+
+[node name="BlackLabel" type="Label" parent="Margin/HBox/Side/SideMargin/VBox/PlayersRow"]
+layout_mode = 2
+text = "Negras"
+
+[node name="BlackCtrl" type="OptionButton" parent="Margin/HBox/Side/SideMargin/VBox/PlayersRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+
 [node name="Sep1" type="HSeparator" parent="Margin/HBox/Side/SideMargin/VBox"]
 layout_mode = 2
 
@@ -177,7 +200,7 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 focus_mode = 0
-text = "Empate…"
+text = "Tablas…"
 
 [node name="LogsButton" type="Button" parent="Margin/HBox/Side/SideMargin/VBox/FooterRow"]
 unique_name_in_owner = true
@@ -269,9 +292,10 @@ text = "Ver tablero"
 
 [node name="DrawDialog" type="ConfirmationDialog" parent="."]
 unique_name_in_owner = true
-title = "Empate experimental"
-size = Vector2i(420, 160)
-ok_button_text = "Registrar empate"
+title = "Tablas pactadas"
+size = Vector2i(460, 170)
+min_size = Vector2i(460, 170)
+ok_button_text = "Registrar tablas"
 cancel_button_text = "Cancelar"
 
 [node name="DVBox" type="VBoxContainer" parent="DrawDialog"]
@@ -281,9 +305,9 @@ offset_right = 412.0
 offset_bottom = 111.0
 
 [node name="DLabel" type="Label" parent="DrawDialog/DVBox"]
+custom_minimum_size = Vector2(420, 0)
 layout_mode = 2
-autowrap_mode = 3
-text = "Causa observada (§6.10): repetición, bloqueo…"
+text = "Causa observada (§6.10): bloqueo, material insuficiente…"
 
 [node name="DrawCause" type="LineEdit" parent="DrawDialog/DVBox"]
 unique_name_in_owner = true

@@ -9,17 +9,53 @@ static func forward_dir(owner: int) -> int:
 	return 1 if owner == Piece.WHITE else -1
 
 
+static func is_pawn_retreat(rules: RulesConfig, piece: Piece, to: Vector2i) -> bool:
+	return rules.pieces[piece.piece_type]["movement"] == "pawn" \
+		and to - piece.position == Vector2i(0, -forward_dir(piece.owner))
+
+
 static func legal_moves(board: Board, piece: Piece, rules: RulesConfig) -> Array[Vector2i]:
 	var def: Dictionary = rules.pieces[piece.piece_type]
 	match String(def["movement"]):
 		"pawn":
-			return _pawn_moves(board, piece)
+			return _pawn_moves(board, piece, rules)
 		"leaper":
 			return _leaper_moves(board, piece, def["offsets"])
 		"slider":
-			return _slider_moves(board, piece, def["directions"])
+			return _slider_moves(board, piece, def["directions"], int(def.get("max_range", 0)))
 	push_error("Patrón de movimiento desconocido: %s" % def["movement"])
 	return []
+
+
+## Casillas en las que esta pieza capturaría si hubiera una pieza rival (incluye las
+## ocupadas por piezas propias: sirve para saber qué piezas están «defendidas»).
+static func attack_squares(board: Board, piece: Piece, rules: RulesConfig) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var def: Dictionary = rules.pieces[piece.piece_type]
+	match String(def["movement"]):
+		"pawn":
+			var dy := forward_dir(piece.owner)
+			for dx in [-1, 1]:
+				var t := piece.position + Vector2i(dx, dy)
+				if board.in_bounds(t):
+					out.append(t)
+		"leaper":
+			for o in def["offsets"]:
+				var t: Vector2i = piece.position + o
+				if board.in_bounds(t):
+					out.append(t)
+		"slider":
+			var max_range := int(def.get("max_range", 0))
+			for d in def["directions"]:
+				var t: Vector2i = piece.position + d
+				var steps := 1
+				while board.in_bounds(t) and (max_range <= 0 or steps <= max_range):
+					out.append(t)
+					if board.piece_at(t) != null:
+						break
+					t += d
+					steps += 1
+	return out
 
 
 static func is_legal(board: Board, piece: Piece, to: Vector2i, rules: RulesConfig) -> bool:
@@ -27,8 +63,8 @@ static func is_legal(board: Board, piece: Piece, to: Vector2i, rules: RulesConfi
 
 
 ## Peón: avanza 1 si está vacío; captura 1 en diagonal hacia delante.
-## Sin avance doble, en passant ni promoción.
-static func _pawn_moves(board: Board, piece: Piece) -> Array[Vector2i]:
+## Sin avance doble ni en passant. Opcional: retroceso de 1 sin capturar (pawn_retreat).
+static func _pawn_moves(board: Board, piece: Piece, rules: RulesConfig) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	var dy := forward_dir(piece.owner)
 	var ahead := piece.position + Vector2i(0, dy)
@@ -38,6 +74,10 @@ static func _pawn_moves(board: Board, piece: Piece) -> Array[Vector2i]:
 		var diag := piece.position + Vector2i(dx, dy)
 		if _is_enemy(board, piece, diag):
 			out.append(diag)
+	if rules.pawn_retreat:
+		var back := piece.position - Vector2i(0, dy)
+		if board.in_bounds(back) and board.is_empty(back):
+			out.append(back)
 	return out
 
 
@@ -54,12 +94,14 @@ static func _leaper_moves(board: Board, piece: Piece, offsets: Array) -> Array[V
 	return out
 
 
-## Deslizador (Torre): cualquier número de casillas, no atraviesa piezas.
-static func _slider_moves(board: Board, piece: Piece, directions: Array) -> Array[Vector2i]:
+## Deslizador (Torre, Alfil, Dama): hasta `max_range` casillas (0 = sin límite),
+## no atraviesa piezas.
+static func _slider_moves(board: Board, piece: Piece, directions: Array, max_range: int = 0) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	for d in directions:
 		var t: Vector2i = piece.position + d
-		while board.in_bounds(t):
+		var steps := 1
+		while board.in_bounds(t) and (max_range <= 0 or steps <= max_range):
 			var occ := board.piece_at(t)
 			if occ == null:
 				out.append(t)
@@ -68,6 +110,7 @@ static func _slider_moves(board: Board, piece: Piece, directions: Array) -> Arra
 					out.append(t)
 				break
 			t += d
+			steps += 1
 	return out
 
 

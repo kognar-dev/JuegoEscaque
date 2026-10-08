@@ -447,3 +447,146 @@ func test_analyzer_report() -> void:
 	check(text.contains("## 1. Comparativa entre modos") and text.contains("P0 · indicios para el criterio de avance"),
 		"informe Markdown generado con comparativa e indicios")
 	print(text)
+
+
+# --- Reglas opcionales: promoción, línea media, alcance, retroceso -------------------
+
+func _custom_opts(mode: String, placements: Array, opts: Dictionary) -> MatchController:
+	var mc := _new(mode)
+	for k in opts.keys():
+		mc.rules.set(k, opts[k])
+	var grid := []
+	for y in 8:
+		grid.append(".".repeat(8))
+	for pl in placements:
+		var p := Board.parse_square(pl[1])
+		var r := 7 - p.y
+		var row: String = grid[r]
+		grid[r] = row.substr(0, p.x) + pl[0] + row.substr(p.x + 1)
+	mc.rules.setup_rows = PackedStringArray(grid)
+	mc.state = GameState.create(mc.rules)
+	TurnController.start_turn(mc.state)
+	mc.logger.begin_match(mc.state)
+	return mc
+
+
+func test_promotion() -> void:
+	var mc := _custom_opts("P0", [["K", "a1"], ["P", "d7"], ["k", "h8"]], {"promotion": "rook"})
+	var a := _mv(mc, "d7", "d8")
+	check(a["promoted"] == "rook" and _at(mc, "d8").piece_type == "rook", "promoción automática a Torre")
+	check(_at(mc, "d8").activation_cost == 3, "la pieza promocionada cuesta como su nuevo tipo")
+	var mc2 := _custom_opts("P0", [["K", "a1"], ["P", "d7"], ["k", "h8"]], {})
+	_mv(mc2, "d7", "d8")
+	check(_at(mc2, "d8").piece_type == "pawn", "sin la opción, no hay promoción (P0)")
+
+
+func test_midline_victory() -> void:
+	var mc := _custom_opts("P0", [["K", "e4"], ["k", "a8"], ["r", "h1"]], {"midline_victory": true})
+	_mv(mc, "e4", "e5")  # el Rey blanco entra en la mitad rival
+	check(not mc.state.over, "entrar en la mitad rival no gana todavía")
+	mc.end_turn()
+	mc.end_turn()        # Negras no lo capturan
+	check(mc.state.over and mc.state.winner == Piece.WHITE and mc.state.end_reason == VictorySystem.REASON_MIDLINE,
+		"gana si el Rey empieza su turno en la mitad rival")
+	var mc2 := _custom_opts("P0", [["K", "e4"], ["k", "a8"], ["r", "e8"]], {"midline_victory": true})
+	_mv(mc2, "e4", "e5")
+	mc2.end_turn()
+	_mv(mc2, "e8", "e5")  # la Torre negra lo captura
+	check(mc2.state.winner == Piece.BLACK and mc2.state.end_reason == VictorySystem.REASON_KING, "si lo capturan, pierde")
+
+
+func test_slider_range() -> void:
+	var mc := _custom_opts("P0", [["K", "h1"], ["R", "a1"], ["k", "h8"]], {})
+	mc.rules.pieces["rook"]["max_range"] = 3
+	var moves := _squares(mc.legal_moves(_at(mc, "a1")))
+	check(moves == ["a2", "a3", "a4", "b1", "c1", "d1"], "Torre con alcance 3")
+	mc.rules.pieces["rook"]["max_range"] = 0
+	check(mc.legal_moves(_at(mc, "a1")).size() == 13, "alcance 0 = sin límite")
+
+
+func test_bishop_and_queen() -> void:
+	var mc := _custom_opts("P0", [["K", "h1"], ["B", "d4"], ["Q", "a8"], ["k", "h8"], ["p", "f6"]], {})
+	var b := _squares(mc.legal_moves(_at(mc, "d4")))
+	check(b.size() == 11 and "f6" in b and not "g7" in b, "Alfil: diagonales hasta 3, captura y se detiene")
+	var q := mc.legal_moves(_at(mc, "a8"))
+	check(q.size() == 9, "Dama: 8 direcciones hasta 3 casillas")
+
+
+func test_pawn_retreat() -> void:
+	var mc := _custom_opts("P0", [["K", "a1"], ["P", "d4"], ["k", "h8"]], {"pawn_retreat": true})
+	var moves := _squares(mc.legal_moves(_at(mc, "d4")))
+	check(moves == ["d3", "d5"], "con retroceso: puede ir atrás")
+	var a := _mv(mc, "d4", "d3")
+	check(a["retreat"] and int(a["cost"]) == 2 and mc.state.ap_available == 4, "retroceder cuesta el doble")
+	mc.end_turn()
+	check(mc.state.turns_without_progress == 1, "retroceder no cuenta como progreso")
+	var mc2 := _custom_opts("P0", [["K", "a1"], ["P", "d4"], ["k", "h8"]], {"pawn_retreat": true})
+	mc2.state.ap_available = 1
+	check(_squares(mc2.legal_moves(_at(mc2, "d4"))) == ["d5"], "con 1 PA sólo se ofrece el avance")
+
+
+# --- IA ---------------------------------------------------------------------------
+
+func test_ai_takes_king() -> void:
+	var mc := _custom_opts("P0", [["K", "a1"], ["R", "e2"], ["k", "e8"], ["p", "h7"]], {})
+	var plan := AIPlayer.new("normal", 3).plan_turn(mc.state)
+	check(plan.size() >= 1 and plan[0]["to"] == Board.parse_square("e8"), "la IA captura el Rey si puede")
+
+
+func test_ai_saves_king() -> void:
+	# La Torre negra amenaza al Rey blanco en e1 por la columna: la IA debe evitarlo.
+	var mc := _custom_opts("P0", [["K", "e1"], ["P", "a2"], ["k", "a8"], ["r", "e7"]], {})
+	var plan := AIPlayer.new("normal", 3).plan_turn(mc.state)
+	for st in plan:
+		mc.activate(mc.state.board.get_piece(st["piece_id"]), st["to"])
+	var ai := AIPlayer.new("normal", 3)
+	var opp_att := AIPlayer._attack_map(mc.state.board, mc.state.board.pieces_of(1), mc.rules)
+	var k: Piece = mc.state.royal_pieces(0)[0]
+	check(not ai.king_capturable(mc.state, k, opp_att, 8, 99), "la IA aparta al Rey de la amenaza")
+
+
+func test_ai_discovered_threat() -> void:
+	# Torre negra en e8 tapada por su propio Caballo en e5: puede apartarlo y capturar.
+	var mc := _custom_opts("P0", [["K", "e1"], ["k", "a8"], ["r", "e8"], ["n", "e5"]], {})
+	var ai := AIPlayer.new("normal", 3)
+	var att := AIPlayer._attack_map(mc.state.board, mc.state.board.pieces_of(1), mc.rules)
+	check(ai.king_capturable(mc.state, mc.state.royal_pieces(0)[0], att, 6, 99), "detecta la amenaza descubierta (2 activaciones)")
+	check(not ai.king_capturable(mc.state, mc.state.royal_pieces(0)[0], att, 4, 99), "…salvo que no le lleguen los PA (2+3 > 4)")
+
+
+func test_ai_full_games_legal() -> void:
+	var ok := true
+	var ended := 0
+	for mode in ["P0", "C0"]:
+		for opts in [{}, {"promotion": "rook", "midline_victory": true, "pawn_retreat": true}]:
+			var rules := RulesConfig.load_mode(mode)
+			for k in opts.keys():
+				rules.set(k, opts[k])
+			var data := RuleLab.play_game(rules, AIPlayer.new("facil", 5), AIPlayer.new("normal", 6), "", 150)
+			if data.get("end_reason") == null:
+				ok = false
+			else:
+				ended += 1
+	check(ok and ended == 4, "la IA juega partidas completas legales en P0/C0, con y sin opciones")
+
+
+func test_lab_overrides() -> void:
+	var base: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(RulesConfig.DEFAULT_PATH))
+	var r := RuleLab.build_rules(base, {"mode": "P0", "set": {"modes.P0.base_ap": 5, "pieces.rook.max_range": 3, "rule_options.promotion": "rook"}})
+	check(r.base_ap == 5 and int(r.pieces["rook"]["max_range"]) == 3 and r.promotion == "rook", "el laboratorio aplica cambios por ruta")
+	var r0 := RulesConfig.load_mode("P0")
+	check(r0.base_ap == 6 and r0.promotion == "" and not r0.midline_victory and not r0.pawn_retreat, "P0 por defecto no cambia")
+
+
+func test_retreat_cycle_not_progress() -> void:
+	var mc := _custom_opts("P0", [["K", "a1"], ["P", "d4"], ["k", "h8"]], {"pawn_retreat": true})
+	_mv(mc, "d4", "d5")
+	mc.end_turn()
+	check(mc.state.turns_without_progress == 0, "avanzar a una fila nueva es progreso")
+	mc.end_turn()
+	_mv(mc, "d5", "d4")   # retrocede
+	mc.end_turn()
+	mc.end_turn()
+	_mv(mc, "d4", "d5")   # vuelve a una fila ya alcanzada
+	mc.end_turn()
+	check(mc.state.turns_without_progress == 4, "retroceder y volver a avanzar no reinicia el contador")

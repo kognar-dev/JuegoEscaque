@@ -19,6 +19,9 @@ var turn_actions: Array[Dictionary] = []
 var position_counts: Dictionary = {}
 var current_repetition: int = 1
 var turns_without_progress: int = 0
+## Fila más avanzada que ha alcanzado cada peón (id -> avance). Sólo superar ese récord
+## cuenta como progreso: con retroceso, ir y volver no evita las tablas.
+var pawn_best: Dictionary = {}
 
 var over: bool = false
 var winner: int = -1            ## -1 = sin ganador (en curso o empate)
@@ -46,6 +49,35 @@ static func create(p_rules: RulesConfig) -> GameState:
 			s.board.place(Piece.new(next_id, owner, type, Vector2i(x, y), p_rules.pieces[type]["cost"]))
 			next_id += 1
 	return s
+
+
+## Copia para simulación: tablero y contadores, sin historial de posiciones.
+func clone() -> GameState:
+	var s := GameState.new()
+	s.rules = rules
+	s.board = board.clone()
+	s.player_turn = player_turn
+	s.round_number = round_number
+	s.active_player = active_player
+	s.ap_available = ap_available
+	s.ap_at_turn_start = ap_at_turn_start
+	s.reserve = reserve.duplicate()
+	s.turn_actions = turn_actions.duplicate()
+	s.current_repetition = current_repetition
+	s.turns_without_progress = turns_without_progress
+	s.pawn_best = pawn_best.duplicate()
+	s.over = over
+	s.winner = winner
+	s.end_reason = end_reason
+	return s
+
+
+func royal_pieces(owner: int) -> Array[Piece]:
+	var out: Array[Piece] = []
+	for p in board.pieces_of(owner):
+		if bool(rules.pieces[p.piece_type].get("royal", false)):
+			out.append(p)
+	return out
 
 
 func opponent(of: int = -1) -> int:

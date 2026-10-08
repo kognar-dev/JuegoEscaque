@@ -20,7 +20,12 @@ func _init(log_dir: String = "user://logs", log_enabled: bool = true,
 
 
 func new_match(mode: String) -> void:
-	rules = RulesConfig.load_mode(mode, _rules_path)
+	new_match_with_rules(RulesConfig.load_mode(mode, _rules_path))
+
+
+## Partida con un RulesConfig ya construido (variantes del laboratorio de reglas).
+func new_match_with_rules(p_rules: RulesConfig) -> void:
+	rules = p_rules
 	state = GameState.create(rules)
 	TurnController.start_turn(state)
 	logger.begin_match(state)
@@ -29,8 +34,16 @@ func new_match(mode: String) -> void:
 		_finish(false)
 
 
+## Destinos a mostrar: para las piezas del jugador activo, sólo los que puede pagar;
+## para las rivales, todo su alcance (consulta).
 func legal_moves(piece: Piece) -> Array[Vector2i]:
+	if piece.owner == state.active_player and not state.over:
+		return TurnController.affordable_moves(state, piece)
 	return MoveGenerator.legal_moves(state.board, piece, rules)
+
+
+func move_cost(piece: Piece, to: Vector2i) -> int:
+	return TurnController.move_cost(state, piece, to)
 
 
 func activation_error(piece: Piece) -> String:

@@ -18,6 +18,15 @@ var max_activations_per_piece: int = 1
 var repetition_limit: int = 3
 var no_progress_turns: int = 30
 var no_moves_loses: bool = false
+## Reglas opcionales (Anexo A · A.2.1 y A.2.6).
+## promotion: "" = sin promoción (P0), o tipo de pieza al que corona automáticamente.
+var promotion: String = ""
+## Victoria si el Rey empieza su turno en la mitad rival (sobrevivió al turno del rival).
+var midline_victory: bool = false
+## Retroceso de peón (propuesta de diseño): una casilla hacia atrás, sin capturar,
+## pagando coste × factor.
+var pawn_retreat: bool = false
+var pawn_retreat_cost_factor: int = 2
 var first_player: int = 0  # 0 = Blancas, 1 = Negras
 var setup_rows: PackedStringArray = PackedStringArray()
 ## type -> { name, letter, symbol, cost, movement, offsets, directions, royal }
@@ -57,11 +66,16 @@ static func from_dict(data: Dictionary, mode: String) -> RulesConfig:
 	c.max_reserve = int(m.get("max_reserve", 0))
 	c.max_activations_per_piece = int(m.get("max_activations_per_piece", 1))
 
-	var end_rules: Dictionary = data.get("end_rules", {}).duplicate()
-	end_rules.merge(m, true)  # el modo sobrescribe los valores globales
-	c.repetition_limit = int(end_rules.get("repetition_limit", 3))
-	c.no_progress_turns = int(end_rules.get("no_progress_turns", 30))
-	c.no_moves_loses = bool(end_rules.get("no_moves_loses", false))
+	var opts: Dictionary = data.get("end_rules", {}).duplicate()
+	opts.merge(data.get("rule_options", {}), true)
+	opts.merge(m, true)  # el modo sobrescribe los valores globales
+	c.repetition_limit = int(opts.get("repetition_limit", 3))
+	c.no_progress_turns = int(opts.get("no_progress_turns", 30))
+	c.no_moves_loses = bool(opts.get("no_moves_loses", false))
+	c.promotion = String(opts.get("promotion", ""))
+	c.midline_victory = bool(opts.get("midline_victory", false))
+	c.pawn_retreat = bool(opts.get("pawn_retreat", false))
+	c.pawn_retreat_cost_factor = int(opts.get("pawn_retreat_cost_factor", 2))
 
 	for type in data.get("pieces", {}).keys():
 		var p: Dictionary = data["pieces"][type]
@@ -73,11 +87,24 @@ static func from_dict(data: Dictionary, mode: String) -> RulesConfig:
 			"movement": String(p.get("movement", "leaper")),
 			"offsets": _to_vectors(p.get("offsets", [])),
 			"directions": _to_vectors(p.get("directions", [])),
+			"max_range": int(p.get("max_range", 0)),  ## deslizantes: 0 = sin límite
 			"royal": bool(p.get("royal", false)),
+			"ai_value": float(p.get("ai_value", -1.0)),  ## valor material para la IA (-1 = por defecto)
 		}
 		c.pieces[type] = def
 		c.symbol_to_type[def["symbol"]] = type
+	c._validate()
 	return c
+
+
+## Valida las opciones tras cargar (promoción a un tipo inexistente → error claro).
+func _validate() -> void:
+	assert(promotion == "" or pieces.has(promotion), "promotion: tipo de pieza desconocido «%s»" % promotion)
+
+
+## Mitad rival del tablero para `owner` (Blancas: filas superiores).
+func in_enemy_half(owner: int, pos: Vector2i) -> bool:
+	return pos.y >= board_size / 2 if owner == Piece.WHITE else pos.y < board_size / 2
 
 
 func uses_ap() -> bool:
@@ -110,6 +137,10 @@ func to_log_dict() -> Dictionary:
 		"repetition_limit": repetition_limit,
 		"no_progress_turns": no_progress_turns,
 		"no_moves_loses": no_moves_loses,
+		"promotion": promotion,
+		"midline_victory": midline_victory,
+		"pawn_retreat": pawn_retreat,
+		"pawn_retreat_cost_factor": pawn_retreat_cost_factor,
 		"setup": Array(setup_rows),
 	}
 

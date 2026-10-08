@@ -9,6 +9,13 @@
 		"no_progress_turns": 30,
 		"no_moves_loses": false
 	},
+	"rule_options": {
+		"_comment": "Reglas opcionales (Anexo A). Cada modo puede sobrescribirlas. promotion: \"\" = sin promoción, o el tipo de pieza al que corona el peón.",
+		"promotion": "",
+		"midline_victory": false,
+		"pawn_retreat": false,
+		"pawn_retreat_cost_factor": 2
+	},
 	"setup": [
 		"..rknr..",
 		"..pppp..",
@@ -41,7 +48,8 @@
 			"symbol": "r",
 			"cost": 3,
 			"movement": "slider",
-			"directions": [[1, 0], [-1, 0], [0, 1], [0, -1]]
+			"directions": [[1, 0], [-1, 0], [0, 1], [0, -1]],
+			"max_range": 0
 		},
 		"king": {
 			"name": "Rey",
@@ -51,6 +59,26 @@
 			"movement": "leaper",
 			"offsets": [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]],
 			"royal": true
+		},
+		"bishop": {
+			"_comment": "Disponible para variantes: no está en la colocación de P0.",
+			"name": "Alfil",
+			"letter": "A",
+			"symbol": "b",
+			"cost": 2,
+			"movement": "slider",
+			"directions": [[1, 1], [1, -1], [-1, 1], [-1, -1]],
+			"max_range": 3
+		},
+		"queen": {
+			"_comment": "Disponible para variantes: no está en la colocación de P0.",
+			"name": "Dama",
+			"letter": "D",
+			"symbol": "q",
+			"cost": 4,
+			"movement": "slider",
+			"directions": [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]],
+			"max_range": 3
 		}
 	},
 	"modes": {

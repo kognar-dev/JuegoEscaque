@@ -155,6 +155,8 @@ static func replay_order_dependency(log: Dictionary) -> Dictionary:
 			if i > 0 and not start_legal.get(piece.id, {}).has(a["to"]):
 				dep += 1
 			s.board.move(piece, Board.parse_square(a["to"]))
+			if a.get("promoted") != null:
+				piece.piece_type = String(a["promoted"])
 		deps.append(dep)
 	return {"ok": true, "deps": deps}
 

@@ -1,0 +1,22 @@
+{
+	"_comment": "Laboratorio de reglas. Cada variante = modo base + cambios por ruta sobre escaque_rules.json (\"set\"). Ejecutar: godot --headless --path . -s res://tools/rule_lab.gd [-- experimentos.json partidas]",
+	"rules": "res://data/escaque_rules.json",
+	"games_per_variant": 60,
+	"ai_level": "normal",
+	"max_player_turns": 200,
+	"seed": 1,
+	"variants": [
+		{"id": "C0", "mode": "C0", "note": "Control: una activación por turno."},
+		{"id": "P0", "mode": "P0", "note": "Reglas actuales."},
+		{"id": "P0 + promoción", "mode": "P0", "set": {"rule_options.promotion": "rook"}, "note": "Peón corona a Torre."},
+		{"id": "P0 + retroceso", "mode": "P0", "set": {"rule_options.pawn_retreat": true}, "note": "Peón retrocede pagando el doble."},
+		{"id": "P0 + línea media", "mode": "P0", "set": {"rule_options.midline_victory": true}, "note": "Victoria por invasión de la línea media."},
+		{"id": "P0 Torre alcance 3", "mode": "P0", "set": {"pieces.rook.max_range": 3}},
+		{"id": "P0 T3 + Alfiles", "mode": "P0", "set": {"pieces.rook.max_range": 3, "setup": [".brknrb.", "..pppp..", "........", "........", "........", "........", "..PPPP..", ".BRNKRB."]}, "note": "Alfiles (alcance 3, 2 PA) en b y g."},
+		{"id": "P0 T3 + Alfiles + Dama", "mode": "P0", "set": {"pieces.rook.max_range": 3, "setup": ["qbrknrb.", "..pppp..", "........", "........", "........", "........", "..PPPP..", ".BRNKRBQ"]}, "note": "Además Dama (alcance 3, 4 PA)."},
+		{"id": "P0 T3 + Alfiles + retroceso", "mode": "P0", "set": {"pieces.rook.max_range": 3, "rule_options.pawn_retreat": true, "setup": [".brknrb.", "..pppp..", "........", "........", "........", "........", "..PPPP..", ".BRNKRB."]}},
+		{"id": "P0 retroceso + promoción", "mode": "P0", "set": {"rule_options.pawn_retreat": true, "rule_options.promotion": "rook"}},
+		{"id": "P0 reserva 0", "mode": "P0", "set": {"modes.P0.max_reserve": 0}},
+		{"id": "P0 Rey 3 PA", "mode": "P0", "set": {"pieces.king.cost": 3}, "note": "Huir con el Rey cuesta más."}
+	]
+}

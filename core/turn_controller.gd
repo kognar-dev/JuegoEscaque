@@ -40,11 +40,31 @@ static func activation_error(s: GameState, piece: Piece) -> String:
 		return ERR_C0_DONE
 	if piece.activations_this_turn >= s.rules.max_activations_per_piece:
 		return ERR_EXHAUSTED
-	if s.rules.cost_of(piece.piece_type) > s.ap_available:
-		return ERR_NO_AP
-	if MoveGenerator.legal_moves(s.board, piece, s.rules).is_empty():
+	var moves := MoveGenerator.legal_moves(s.board, piece, s.rules)
+	if moves.is_empty():
 		return ERR_NO_MOVES
-	return ""
+	for m in moves:
+		if move_cost(s, piece, m) <= s.ap_available:
+			return ""
+	return ERR_NO_AP
+
+
+## Coste en PA de un movimiento concreto: el coste de la pieza, salvo el retroceso de
+## peón (coste × factor). En C0 todo cuesta 0.
+static func move_cost(s: GameState, piece: Piece, to: Vector2i) -> int:
+	var c := s.rules.cost_of(piece.piece_type)
+	if MoveGenerator.is_pawn_retreat(s.rules, piece, to):
+		c *= s.rules.pawn_retreat_cost_factor
+	return c
+
+
+## Movimientos legales que además se pueden pagar ahora.
+static func affordable_moves(s: GameState, piece: Piece) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for m in MoveGenerator.legal_moves(s.board, piece, s.rules):
+		if move_cost(s, piece, m) <= s.ap_available:
+			out.append(m)
+	return out
 
 
 static func can_activate(s: GameState, piece: Piece) -> bool:
@@ -66,19 +86,30 @@ static func activate(s: GameState, piece: Piece, to: Vector2i) -> Dictionary:
 		return {"error": err}
 	if not MoveGenerator.is_legal(s.board, piece, to, s.rules):
 		return {"error": ERR_ILLEGAL}
-
-	var cost := s.rules.cost_of(piece.piece_type)
+	var cost := move_cost(s, piece, to)
+	if cost > s.ap_available:
+		return {"error": ERR_NO_AP}
+	var retreat := MoveGenerator.is_pawn_retreat(s.rules, piece, to)
+	var pawn_progress := false
+	if s.rules.pieces[piece.piece_type]["movement"] == "pawn" and not retreat:
+		var adv := to.y if piece.owner == Piece.WHITE else s.rules.board_size - 1 - to.y
+		var start := from_advance(s, piece)
+		if adv > int(s.pawn_best.get(piece.id, start)):
+			s.pawn_best[piece.id] = adv
+			pawn_progress = true
 	var from := piece.position
 	s.ap_available -= cost
 	assert(s.ap_available >= 0)
 	var victim := s.board.move(piece, to)
 	piece.activations_this_turn += 1
+	var original_type := piece.piece_type
+	var promoted := _maybe_promote(s, piece)
 
 	var action := {
 		"order": s.turn_actions.size() + 1,
 		"player": Piece.owner_key(piece.owner),
 		"piece_id": piece.id,
-		"piece": piece.piece_type,
+		"piece": original_type,
 		"cost": cost if s.rules.uses_ap() else null,
 		"from": Board.square_name(from),
 		"to": Board.square_name(to),
@@ -86,10 +117,26 @@ static func activate(s: GameState, piece: Piece, to: Vector2i) -> Dictionary:
 		"captured": victim.piece_type if victim else null,
 		"captured_id": victim.id if victim else null,
 		"ap_after": s.ap_available if s.rules.uses_ap() else null,
+		"promoted": promoted if promoted != "" else null,
+		"retreat": retreat,
+		"pawn_progress": pawn_progress,
 	}
 	s.turn_actions.append(action)
 	VictorySystem.on_capture(s, piece, victim)
 	return action
+
+
+## Promoción automática (opcional, Anexo A · A.2.6): un peón que llega a la última fila
+## se convierte en `rules.promotion`. Devuelve el tipo nuevo o "".
+static func _maybe_promote(s: GameState, piece: Piece) -> String:
+	if s.rules.promotion == "" or s.rules.pieces[piece.piece_type]["movement"] != "pawn":
+		return ""
+	var last := s.rules.board_size - 1 if piece.owner == Piece.WHITE else 0
+	if piece.position.y != last:
+		return ""
+	piece.piece_type = s.rules.promotion
+	piece.activation_cost = int(s.rules.pieces[s.rules.promotion]["cost"])
+	return s.rules.promotion
 
 
 ## En P0 se puede terminar siempre. En C0 sólo tras activar (o si no hay activación posible).
@@ -117,10 +164,16 @@ static func activatable_count(s: GameState) -> int:
 	return n
 
 
-## Hubo progreso si alguna activación capturó o movió un peón (regla de «sin progreso»).
+## Avance actual de una pieza desde el punto de vista de su dueño (0 = su fila 1).
+static func from_advance(s: GameState, piece: Piece) -> int:
+	return piece.position.y if piece.owner == Piece.WHITE else s.rules.board_size - 1 - piece.position.y
+
+
+## Hubo progreso si alguna activación capturó o llevó un peón a una fila nueva (más
+## avanzada que nunca). Retroceder y volver a avanzar no cuenta: impediría las tablas.
 static func turn_made_progress(s: GameState) -> bool:
 	for a in s.turn_actions:
-		if a["capture"] or a["piece"] == "pawn":
+		if a["capture"] or a.get("pawn_progress", false):
 			return true
 	return false
 

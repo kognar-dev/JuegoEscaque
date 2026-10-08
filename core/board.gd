@@ -67,6 +67,19 @@ func get_piece(id: int) -> Piece:
 	return null
 
 
+## Copia independiente (sólo piezas en juego), para que la IA simule sin tocar la partida.
+func clone() -> Board:
+	var b := Board.new(size)
+	for p in _pieces:
+		if p.captured:
+			continue
+		var q := Piece.new(p.id, p.owner, p.piece_type, p.position, p.activation_cost)
+		q.activations_this_turn = p.activations_this_turn
+		b._grid[q.position] = q
+		b._pieces.append(q)
+	return b
+
+
 static func square_name(p: Vector2i) -> String:
 	return "%s%d" % [char(97 + p.x), p.y + 1]
 

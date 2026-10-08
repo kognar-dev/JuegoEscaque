@@ -8,7 +8,7 @@ func _init() -> void:
 	var args := OS.get_cmdline_user_args()
 	var dir := args[0] if args.size() > 0 else "user://logs"
 	var out := args[1] if args.size() > 1 else ""
-	var path := LogAnalyzer.write_report(dir, out)
+	var path: String = preload("res://core/log_analyzer.gd").write_report(dir, out)
 	if path == "":
 		quit(1)
 		return

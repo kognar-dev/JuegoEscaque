@@ -25,9 +25,21 @@ extends Control
 @onready var draw_dialog: ConfirmationDialog = %DrawDialog
 @onready var draw_cause: LineEdit = %DrawCause
 
+const LOG_ANALYZER := preload("res://core/log_analyzer.gd")
+const AI := preload("res://core/ai_player.gd")
+## Pausas para que la jugada de la IA se pueda seguir con la vista.
+const AI_THINK_DELAY := 0.35
+const AI_STEP_DELAY := 0.5
+
+## Quién controla cada bando: "human" o un nivel de IA ("facil", "normal", "dificil").
+const CONTROLLERS := ["human", "facil", "normal", "dificil"]
+
 var mc: MatchController
 var selected: Piece = null
 var _mode_ids: Array[String] = []
+var _ai_busy := false
+var _match_token := 0  ## invalida jugadas pendientes de la IA al empezar otra partida
+@onready var _ctrl_buttons: Array[OptionButton] = [%WhiteCtrl, %BlackCtrl]
 
 
 func _ready() -> void:
@@ -51,8 +63,16 @@ func _ready() -> void:
 	end_turn_button.pressed.connect(_try_end_turn)
 	draw_button.pressed.connect(_ask_draw)
 	draw_dialog.confirmed.connect(_confirm_draw)
+	draw_dialog.register_text_enter(draw_cause)  # Enter en la causa = confirmar
 	logs_button.pressed.connect(_open_logs)
 	%ReportButton.pressed.connect(_make_report)
+
+	for i in 2:
+		var ob := _ctrl_buttons[i]
+		for c in CONTROLLERS:
+			ob.add_item("Humano" if c == "human" else AI.level_label(c))
+		ob.select(0)
+		ob.item_selected.connect(func(_idx): _maybe_ai_turn())
 
 	get_tree().set_auto_accept_quit(false)
 	_start("P0")
@@ -79,6 +99,8 @@ func _unhandled_input(event: InputEvent) -> void:
 # --- partida ------------------------------------------------------------------
 
 func _start(mode: String) -> void:
+	_match_token += 1
+	_ai_busy = false
 	mc.abandon_if_running()
 	selected = null
 	board_view.selected = null
@@ -95,7 +117,7 @@ func _start(mode: String) -> void:
 
 
 func _try_end_turn() -> void:
-	if mc.state.over or not mc.can_end_turn():
+	if mc.state.over or not mc.can_end_turn() or _is_ai_turn():
 		return
 	_deselect()
 	mc.end_turn()
@@ -105,6 +127,7 @@ func _ask_draw() -> void:
 	if mc.state.over:
 		return
 	draw_cause.text = ""
+	draw_dialog.reset_size()
 	draw_dialog.popup_centered()
 	draw_cause.grab_focus()
 
@@ -121,7 +144,8 @@ func _open_logs() -> void:
 
 func _make_report() -> void:
 	DirAccess.make_dir_recursive_absolute(mc.logger.log_dir)
-	var path := LogAnalyzer.write_report(mc.logger.log_dir)
+	# preload: no depender de la caché global de clases (falla si el editor aún no la regeneró)
+	var path: String = LOG_ANALYZER.write_report(mc.logger.log_dir)
 	if path == "":
 		selection_label.text = "No se pudo generar el informe."
 		return
@@ -132,7 +156,7 @@ func _make_report() -> void:
 # --- selección ----------------------------------------------------------------
 
 func _on_cell_clicked(cell: Vector2i) -> void:
-	if mc.state.over:
+	if mc.state.over or _is_ai_turn():
 		return
 	if selected and board_view.targets_actionable and cell in board_view.move_targets:
 		var piece := selected
@@ -159,7 +183,10 @@ func _select(p: Piece) -> void:
 	if p.owner != mc.state.active_player:
 		selection_label.text = "%s %s%s — alcance rival (sólo consulta)" % [name, _side_adj(p.owner), cost_txt]
 	elif err == "":
-		selection_label.text = "%s%s — elige destino" % [name, cost_txt]
+		var extra := ""
+		if mc.rules.pawn_retreat and mc.rules.pieces[p.piece_type]["movement"] == "pawn" and mc.rules.uses_ap():
+			extra = " (retroceder: %d PA)" % (mc.rules.cost_of(p.piece_type) * mc.rules.pawn_retreat_cost_factor)
+		selection_label.text = "%s%s%s — elige destino" % [name, cost_txt, extra]
 	else:
 		selection_label.text = "%s%s — no activable: %s" % [name, cost_txt, err]
 	board_view.queue_redraw()
@@ -212,7 +239,7 @@ func _on_match_finished(log_path: String) -> void:
 			game_over_title.text = "Ganan %s" % Piece.owner_name(s.winner)
 			game_over_detail.text = "Rey capturado en el turno %d (ronda %d)." % [s.player_turn, s.round_number]
 		VictorySystem.REASON_DRAW:
-			game_over_title.text = "Empate experimental"
+			game_over_title.text = "Tablas pactadas"
 			game_over_detail.text = "Causa: %s · turno %d" % [s.draw_cause, s.player_turn]
 		VictorySystem.REASON_REPETITION, VictorySystem.REASON_NO_PROGRESS:
 			game_over_title.text = "Tablas"
@@ -261,7 +288,7 @@ func _refresh() -> void:
 		parts.append("%s %s→%s%s" % [mc.rules.pieces[a["piece"]]["letter"], a["from"], a["to"], c])
 	sequence_label.text = "Activadas este turno: " + (" → ".join(parts) if parts.size() > 0 else "—")
 
-	var can_end := mc.can_end_turn()
+	var can_end := mc.can_end_turn() and not _is_ai_turn()
 	end_turn_button.disabled = not can_end
 	if uses_ap:
 		end_turn_button.text = "Fin de turno  [Espacio]"
@@ -272,11 +299,15 @@ func _refresh() -> void:
 	if s.over:
 		selection_label.text = "Partida terminada. Pulsa «Nueva partida» para jugar otra."
 	elif selected == null:
-		if uses_ap and not TurnController.has_any_activation(s):
+		if _is_ai_turn():
+			selection_label.text = "Juega la %s." % AI.level_label(_controller(s.active_player))
+		elif uses_ap and not TurnController.has_any_activation(s):
 			selection_label.text = "No quedan activaciones posibles: termina el turno."
 		else:
 			selection_label.text = "Selecciona una pieza. Clic derecho / Esc para cancelar."
 	board_view.queue_redraw()
+	if not _ai_busy:
+		_maybe_ai_turn.call_deferred()
 
 
 ## Contadores visibles de tablas automáticas: sólo cuando empiezan a importar.
@@ -288,6 +319,51 @@ func _end_rules_hint(s: GameState) -> String:
 	if r.repetition_limit > 0 and s.current_repetition >= 2 and not s.over:
 		parts.append("posición repetida %d/%d" % [s.current_repetition, r.repetition_limit])
 	return "  ·  " + " · ".join(parts) if parts.size() > 0 else ""
+
+
+# --- IA ---------------------------------------------------------------------------
+
+func _controller(player: int) -> String:
+	return CONTROLLERS[_ctrl_buttons[player].selected]
+
+
+func _is_ai_turn() -> bool:
+	return mc.state != null and not mc.state.over and _controller(mc.state.active_player) != "human"
+
+
+## Si le toca a la IA, planifica el turno y lo ejecuta paso a paso, con pausas visibles.
+func _maybe_ai_turn() -> void:
+	if _ai_busy or not _is_ai_turn():
+		return
+	_ai_busy = true
+	var token := _match_token
+	selection_label.text = "La IA está pensando…"
+	await get_tree().create_timer(AI_THINK_DELAY).timeout
+	if token != _match_token or not _is_ai_turn():
+		_ai_busy = false
+		return
+	var ai = AI.new(_controller(mc.state.active_player))
+	var plan: Array[Dictionary] = ai.plan_turn(mc.state)
+	for step in plan:
+		if token != _match_token or mc.state.over:
+			break
+		var piece := mc.state.board.get_piece(step["piece_id"])
+		_select(piece)  # se ve qué pieza activa y adónde puede ir
+		await get_tree().create_timer(AI_STEP_DELAY).timeout
+		if token != _match_token or mc.state.over:
+			break
+		_deselect()
+		mc.activate(piece, step["to"])
+		if not mc.rules.uses_ap():
+			break  # en C0 el turno pasa solo
+	if token == _match_token and not mc.state.over and (mc.rules.uses_ap() or plan.is_empty()) \
+			and _controller(mc.state.active_player) != "human":
+		await get_tree().create_timer(AI_STEP_DELAY * 0.6).timeout
+		if token == _match_token and not mc.state.over:
+			mc.end_turn()
+	_ai_busy = false
+	if token == _match_token:
+		_maybe_ai_turn.call_deferred()  # IA contra IA, o turno siguiente
 
 
 func _side_adj(owner: int) -> String:

@@ -9,6 +9,7 @@ const REASON_ABANDONED := "abandonada"
 const REASON_REPETITION := "tablas_repeticion"
 const REASON_NO_PROGRESS := "tablas_sin_progreso"
 const REASON_NO_MOVES := "sin_jugadas"
+const REASON_MIDLINE := "invasion_linea_media"
 
 const DRAW_REASONS := [REASON_DRAW, REASON_REPETITION, REASON_NO_PROGRESS]
 
@@ -19,6 +20,12 @@ static func on_turn_start(s: GameState) -> void:
 	if s.over:
 		return
 	var r := s.rules
+	if r.midline_victory and king_invading(s, s.active_player):
+		# El Rey entró en campo rival en el turno anterior y ha sobrevivido al turno del rival.
+		s.over = true
+		s.winner = s.active_player
+		s.end_reason = REASON_MIDLINE
+		return
 	if r.no_moves_loses and not has_any_legal_move(s):
 		s.over = true
 		s.winner = s.opponent()
@@ -33,6 +40,17 @@ static func on_turn_start(s: GameState) -> void:
 	if r.no_progress_turns > 0 and s.turns_without_progress >= r.no_progress_turns:
 		_auto_draw(s, REASON_NO_PROGRESS,
 			"%d turnos sin captura ni movimiento de peón" % s.turns_without_progress)
+
+
+## Todas las piezas reales de `owner` están en la mitad rival (Anexo A · A.2.1, opción 3).
+static func king_invading(s: GameState, owner: int) -> bool:
+	var royals := s.royal_pieces(owner)
+	if royals.is_empty():
+		return false
+	for k in royals:
+		if not s.rules.in_enemy_half(owner, k.position):
+			return false
+	return true
 
 
 ## Movimiento legal para alguna pieza del jugador activo, sin mirar PA.

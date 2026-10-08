@@ -122,6 +122,11 @@ func _draw() -> void:
 		var rank_pos := Vector2(o.x - COORD_MARGIN + 2, cell_rect(Vector2i(0, i)).get_center().y + coord_size * 0.35)
 		draw_string(font, rank_pos, str(i + 1), HORIZONTAL_ALIGNMENT_CENTER, COORD_MARGIN - 6, coord_size, C_COORD)
 
+	# línea media (regla de invasión): borde entre las dos mitades
+	if mc.rules.midline_victory:
+		var y_mid := cell_rect(Vector2i(0, n / 2)).end.y
+		draw_line(Vector2(o.x - 4, y_mid), Vector2(o.x + n * cs + 4, y_mid), C_CAPTURE, 3.0)
+
 	# último movimiento y selección
 	for c in [last_from, last_to]:
 		if c != NONE:
@@ -210,6 +215,11 @@ func _shape(type: String, c: Vector2, r: float) -> PackedVector2Array:
 		"rook":
 			var h := r * 0.85
 			pts = PackedVector2Array([c + Vector2(-h, -h), c + Vector2(h, -h), c + Vector2(h, h), c + Vector2(-h, h)])
+		"bishop":
+			pts = PackedVector2Array([c + Vector2(0, -r * 1.05), c + Vector2(r, r * 0.8), c + Vector2(-r, r * 0.8)])
+		"queen":
+			for i in 6:
+				pts.append(c + Vector2.from_angle(TAU * i / 6.0 - PI / 2) * r)
 		_:
 			for i in 8:
 				pts.append(c + Vector2.from_angle(TAU * (i + 0.5) / 8.0) * r)
